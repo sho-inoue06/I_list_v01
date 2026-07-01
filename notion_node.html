@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skill A〜E・S Interactive Flowchart</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #475569;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --purple: #a78bfa;
+      --red: #fb7185;
+      --blue: #60a5fa;
+      --card: #111827;
+      --shadow: 0 18px 50px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #1e3a8a 0, transparent 35%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 24px 28px 12px;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: clamp(24px, 3vw, 38px); letter-spacing: -.04em; }
+    .subtitle { margin-top: 8px; color: var(--muted); line-height: 1.6; max-width: 840px; }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 0 28px 18px;
+    }
+    button, select {
+      border: 1px solid #334155;
+      background: rgba(15,23,42,.84);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(0,0,0,.18);
+    }
+    button:hover, select:hover { border-color: var(--accent); }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(680px, 1fr) 380px;
+      gap: 18px;
+      padding: 0 28px 28px;
+    }
+    .canvasWrap, .sidePanel {
+      background: rgba(15,23,42,.72);
+      border: 1px solid rgba(148,163,184,.2);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .canvasWrap { position: relative; overflow: auto; min-height: 650px; }
+    .canvas {
+      position: relative;
+      min-width: 1060px;
+      height: 720px;
+      padding: 24px;
+    }
+    svg.edges { position: absolute; inset: 0; width: 1060px; height: 720px; pointer-events: none; overflow: visible; }
+    .node {
+      position: absolute;
+      width: 210px;
+      min-height: 112px;
+      padding: 14px 14px 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.32);
+      background: linear-gradient(180deg, rgba(31,41,55,.96), rgba(17,24,39,.96));
+      box-shadow: 0 12px 30px rgba(0,0,0,.25);
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    .node:hover { transform: translateY(-4px); border-color: var(--accent); }
+    .node.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,.22), 0 18px 40px rgba(0,0,0,.32); }
+    .node.dim { opacity: .32; }
+    .node .tag { display: inline-block; font-size: 12px; color: #020617; padding: 3px 8px; border-radius: 999px; font-weight: 700; margin-bottom: 8px; }
+    .node h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.02em; }
+    .node p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .capture .tag { background: var(--green); }
+    .selection .tag { background: var(--blue); }
+    .define .tag { background: var(--yellow); }
+    .review .tag { background: var(--purple); }
+    .sprint .tag { background: var(--red); }
+    .storage .tag { background: #cbd5e1; }
+    .edge { stroke: var(--line); stroke-width: 2.4; fill: none; marker-end: url(#arrow); opacity: .68; transition: stroke .18s, opacity .18s, stroke-width .18s; }
+    .edge.active { stroke: var(--accent); stroke-width: 4; opacity: 1; }
+    .edge.dim { opacity: .12; }
+    .sidePanel { padding: 20px; position: sticky; top: 20px; height: fit-content; }
+    .sidePanel h2 { margin: 0 0 8px; font-size: 22px; }
+    .sidePanel .meta { color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .detailBlock { background: rgba(31,41,55,.72); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding: 14px; margin: 12px 0; }
+    .detailBlock h4 { margin: 0 0 8px; color: #f8fafc; }
+    .detailBlock ul { margin: 0; padding-left: 20px; color: #cbd5e1; line-height: 1.55; }
+    .legend { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 28px 22px; }
+    .pill { font-size: 12px; color: #020617; font-weight: 700; padding: 5px 9px; border-radius: 999px; }
+    .note { color: var(--muted); font-size: 13px; line-height: 1.5; padding: 0 28px 26px; }
+    @media (max-width: 1020px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidePanel { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Skill A〜E・S Interactive Flowchart</h1>
+      <div class="subtitle">
+        思考ログ・テーマストック・成果物定義・実行レビュー・スプリント運用をつなぐ、生活OSのスキル群フロー。<br>
+        クリックして「このノードは何を読み、何を書き、どこへ渡すか」を確認する。
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button onclick="resetView()">全体表示</button>
+    <button onclick="playRoute()">推奨ルートを再生</button>
+    <select onchange="filterType(this.value)">
+      <option value="all">すべて</option>
+      <option value="capture">Capture</option>
+      <option value="selection">Selection</option>
+      <option value="define">Define</option>
+      <option value="review">Review</option>
+      <option value="sprint">Sprint</option>
+      <option value="storage">Storage</option>
+    </select>
+  </div>
+
+  <div class="legend">
+    <span class="pill" style="background:var(--green)">Capture</span>
+    <span class="pill" style="background:var(--blue)">Selection</span>
+    <span class="pill" style="background:var(--yellow)">Define</span>
+    <span class="pill" style="background:var(--purple)">Review</span>
+    <span class="pill" style="background:var(--red)">Sprint</span>
+    <span class="pill" style="background:#cbd5e1">Storage</span>
+  </div>
+
+  <main class="layout">
+    <section class="canvasWrap">
+      <div class="canvas" id="canvas">
+        <svg class="edges" id="edges" viewBox="0 0 1060 720">
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#64748b" />
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </section>
+
+    <aside class="sidePanel" id="detail">
+      <h2>ノードをクリック</h2>
+      <div class="meta">各スキルの目的・読む箱・書く箱・次ノードがここに出る。</div>
+      <div class="detailBlock">
+        <h4>基本ルール</h4>
+        <ul>
+          <li>新しいPain / Wantは、いきなり成果物化せずSkill Aへ。</li>
+          <li>次に進めるテーマはSkill Cで絞る。</li>
+          <li>作るもの・MVP・完了条件はSkill Dで定義する。</li>
+          <li>作った結果はSkill Eで元テーマへ返す。</li>
+          <li>2週間計画はSkill Sで現実の予定に合わせる。</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <div class="note">
+    注意：この図は「スキル運用の道筋」を見るためのHTML。Notion DB自体を更新するものではない。
+  </div>
+
+<script>
+const nodes = {
+  inbox: {
+    type: "storage", x: 40, y: 270, title: "会話・違和感・アイデア", tag: "Input",
+    short: "相談、Pain / Want、作りたいもの、実行結果の素材。",
+    purpose: "まだ構造化されていない入口。保存不要か、Skill Aへ送るかを判断する。",
+    reads: ["チャット", "思いつき", "最近の違和感", "実行結果"],
+    writes: ["保存不要判断", "Skill Aへの素材"],
+    next: ["Skill A"]
+  },
+  A: {
+    type: "capture", x: 300, y: 95, title: "Skill A", tag: "Capture Node",
+    short: "思考ログに原典を残し、テーマストック候補を判定する。",
+    purpose: "会話を単なる要約で終わらせず、思考ログ・テーマストック・出口判断に分ける。",
+    reads: ["会話内容", "当日の思考ログ", "既存テーマストック"],
+    writes: ["思考ログ", "テーマストック候補", "次ノード判断"],
+    next: ["Skill C", "Skill D", "Skill S", "完了"]
+  },
+  thought: {
+    type: "storage", x: 570, y: 35, title: "思考ログ", tag: "Storage",
+    short: "原典・判断理由・学びを日付単位で残す。",
+    purpose: "未来の意思決定で再利用できるよう、テーマ単位で整理する。",
+    reads: ["Skill Aの整理", "Skill Eの学び"],
+    writes: ["今日のテーマ", "何が起きたか", "判断軸", "次の一手"],
+    next: ["Skill C", "Skill E"]
+  },
+  theme: {
+    type: "storage", x: 570, y: 210, title: "テーマストック", tag: "Storage",
+    short: "未解決のPain / Want / 今を変えたい理由を置く。",
+    purpose: "成果物アイデアではなく、長期的に扱うべきテーマを保持する。",
+    reads: ["Skill Aのテーマ候補", "Skill Eの状態判断"],
+    writes: ["Inbox", "Candidate", "Selected", "Done", "Parked"],
+    next: ["Skill C", "Skill D", "Skill S"]
+  },
+  C: {
+    type: "selection", x: 835, y: 210, title: "Skill C", tag: "Theme Selection",
+    short: "テーマストックを棚卸しし、今扱うテーマを選ぶ。",
+    purpose: "Selectedを増やしすぎず、今進めるテーマを最大限絞る。",
+    reads: ["テーマストック", "プロジェクトDB", "タスクDB", "思考ログ", "スプリント状況"],
+    writes: ["Selected候補", "Parked理由", "Done判断", "次ノード"],
+    next: ["Skill D", "Skill S", "Skill E"]
+  },
+  D: {
+    type: "define", x: 835, y: 415, title: "Skill D", tag: "Define Node",
+    short: "テーマを成果物・MVP・完了条件に変換する。",
+    purpose: "何を作れば完了かを明確にし、作れる粒度まで切る。",
+    reads: ["Selectedテーマ", "関連アセット", "プロジェクトDB", "必要なナレッジ"],
+    writes: ["成果物定義", "MVP", "完了条件", "Claude/Codex投入文", "タスク候補"],
+    next: ["アセットDB", "Skill S", "Skill E"]
+  },
+  asset: {
+    type: "storage", x: 570, y: 525, title: "アセットDB", tag: "Storage",
+    short: "成果物・要件定義・開発ログ・運用ページを残す。",
+    purpose: "実行で増えた資産を保管し、テーマやタスクへ接続する。",
+    reads: ["Skill DのDefine結果", "Skill Eのレビュー"],
+    writes: ["成果物ページ", "要件定義", "開発ログ", "運用ルール"],
+    next: ["Skill S", "Skill E"]
+  },
+  task: {
+    type: "storage", x: 300, y: 525, title: "タスクDB / Backlog", tag: "Storage",
+    short: "実行単位の作業を管理する。",
+    purpose: "Define済みの作業を、期日・時間見積もり付きで管理する。",
+    reads: ["Skill Dのタスク候補", "Skill Sの計画"],
+    writes: ["Backlog", "今スプリントタスク", "完了 / 中止"],
+    next: ["Skill S", "Skill E"]
+  },
+  S: {
+    type: "sprint", x: 40, y: 525, title: "Skill S", tag: "Sprint Orchestrator",
+    short: "予定と余力を見て、2週間の実行計画に落とす。",
+    purpose: "やりたいことではなく、現実にできるスプリントを組む。",
+    reads: ["カレンダー", "Selectedテーマ", "Define済みアセット", "Backlog", "KPIログ"],
+    writes: ["スプリント計画", "期日", "作業時間", "KPI目標", "未完了整理"],
+    next: ["実行", "Skill E", "Skill C"]
+  },
+  exec: {
+    type: "storage", x: 40, y: 95, title: "実行", tag: "Action",
+    short: "自分で作業、Claude/Codex投入、タスク実行。",
+    purpose: "定義したMVPを実際に動かし、結果を作る。",
+    reads: ["スプリント計画", "要件定義", "タスク"],
+    writes: ["成果物", "実行結果", "うまくいったこと / 失敗"],
+    next: ["Skill E"]
+  },
+  E: {
+    type: "review", x: 300, y: 270, title: "Skill E", tag: "Review Node",
+    short: "実行結果を元テーマに照らしてレビューする。",
+    purpose: "作って終わりにせず、Pain / Wantに効いたかを見て次状態を決める。",
+    reads: ["元テーマ", "成果物", "関連タスク", "実行結果", "思考ログ"],
+    writes: ["学び", "テーマ状態", "成果物固有レビュー", "次の扱い"],
+    next: ["思考ログ", "テーマストック", "アセットDB", "Skill C", "Skill S"]
+  }
+};
+
+const edges = [
+  ["inbox", "A"], ["A", "thought"], ["A", "theme"],
+  ["theme", "C"], ["thought", "C"], ["C", "D"], ["D", "asset"], ["D", "task"],
+  ["asset", "S"], ["task", "S"], ["S", "exec"], ["exec", "E"],
+  ["E", "thought"], ["E", "theme"], ["E", "asset"], ["E", "C"], ["C", "S"]
+];
+
+const route = ["inbox", "A", "theme", "C", "D", "asset", "task", "S", "exec", "E", "theme"];
+
+function render() {
+  const canvas = document.getElementById("canvas");
+  Object.entries(nodes).forEach(([id, n]) => {
+    const el = document.createElement("div");
+    el.className = `node ${n.type}`;
+    el.id = `node-${id}`;
+    el.style.left = n.x + "px";
+    el.style.top = n.y + "px";
+    el.innerHTML = `<span class="tag">${n.tag}</span><h3>${n.title}</h3><p>${n.short}</p>`;
+    el.onclick = () => selectNode(id);
+    canvas.appendChild(el);
+  });
+  drawEdges();
+}
+
+function centerOf(id) {
+  const n = nodes[id];
+  return { x: n.x + 105, y: n.y + 56 };
+}
+
+function drawEdges(activePairs = []) {
+  const svg = document.getElementById("edges");
+  svg.querySelectorAll("path.edge").forEach(p => p.remove());
+  edges.forEach(([from, to]) => {
+    const a = centerOf(from), b = centerOf(to);
+    const dx = Math.abs(b.x - a.x) * 0.45;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const d = `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+    path.setAttribute("d", d);
+    path.setAttribute("class", "edge");
+    path.dataset.from = from;
+    path.dataset.to = to;
+    if (activePairs.some(p => p[0] === from && p[1] === to)) path.classList.add("active");
+    svg.appendChild(path);
+  });
+}
+
+function selectNode(id) {
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("active", "dim"));
+  document.querySelectorAll(".edge").forEach(el => el.classList.remove("active", "dim"));
+  document.getElementById(`node-${id}`).classList.add("active");
+
+  const connected = new Set([id]);
+  edges.forEach(([from, to]) => {
+    if (from === id || to === id) {
+      connected.add(from); connected.add(to);
+    }
+  });
+  Object.keys(nodes).forEach(nid => {
+    if (!connected.has(nid)) document.getElementById(`node-${nid}`).classList.add("dim");
+  });
+  document.querySelectorAll(".edge").forEach(e => {
+    if (e.dataset.from === id || e.dataset.to === id) e.classList.add("active");
+    else e.classList.add("dim");
+  });
+  showDetail(id);
+}
+
+function showDetail(id) {
+  const n = nodes[id];
+  document.getElementById("detail").innerHTML = `
+    <h2>${n.title}</h2>
+    <div class="meta"><strong>${n.tag}</strong><br>${n.short}</div>
+    <div class="detailBlock"><h4>目的</h4><ul><li>${n.purpose}</li></ul></div>
+    <div class="detailBlock"><h4>読むもの</h4><ul>${n.reads.map(x => `<li>${x}</li>`).join("")}</ul></div>
+    <div class="detailBlock"><h4>書くもの</h4><ul>${n.writes.map(x => `<li>${x}</li>`).join("")}</ul></div>
+    <div class="detailBlock"><h4>次に渡す先</h4><ul>${n.next.map(x => `<li>${x}</li>`).join("")}</ul></div>
+  `;
+}
+
+function resetView() {
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("active", "dim"));
+  document.querySelectorAll(".edge").forEach(el => el.classList.remove("active", "dim"));
+  drawEdges();
+  document.getElementById("detail").innerHTML = `
+    <h2>全体表示</h2>
+    <div class="meta">Skill A〜E・Sの関係を表示中。</div>
+    <div class="detailBlock"><h4>代表ルート</h4><ul><li>Input → Skill A → テーマストック → Skill C → Skill D → アセット / タスク → Skill S → 実行 → Skill E → テーマストック</li></ul></div>
+  `;
+}
+
+function filterType(type) {
+  resetView();
+  if (type === "all") return;
+  Object.entries(nodes).forEach(([id, n]) => {
+    if (n.type !== type) document.getElementById(`node-${id}`).classList.add("dim");
+  });
+  document.querySelectorAll(".edge").forEach(el => el.classList.add("dim"));
+}
+
+async function playRoute() {
+  resetView();
+  for (let i = 0; i < route.length; i++) {
+    selectNode(route[i]);
+    if (i > 0) drawEdges([[route[i-1], route[i]]]);
+    await new Promise(r => setTimeout(r, 900));
+  }
+}
+
+render();
+</script>
+</body>
+</html>

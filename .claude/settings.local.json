@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/inouesho/Desktop/github_practice status)",
+      "Bash(git config *)",
+      "Bash(git -C /Users/inouesho/Desktop/github_practice init)",
+      "Bash(git -C /Users/inouesho/Desktop/github_practice add README.md)",
+      "Bash(git -C /Users/inouesho/Desktop/github_practice commit -m \"最初のコミット: README追加\")"
+    ]
+  }
+}
