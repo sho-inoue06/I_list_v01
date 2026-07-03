@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { AlertTriangle, ShieldCheck, Minus, Activity, Pencil, Cpu, Plus, Trash2, Download, Upload, Table2, Scale, FileCheck } from "lucide-react";
 
 // ───────────────────────────────────────────────
-// Iリスト 帳票アプリ（段階1）
+// Iリスト 帳票アプリ（段階2：サーバ保存）
 //   入力＝法規DB・型式ラン・認可書実績（人間が手入れ）／ 帳票＝自動算出
 //   要否：新型ラン 要⇔(新型適用≤LO)or(継続適用≤ドロップ)、継続ラン 要⇔継続適用≤ドロップ
-//   データはJSONで書き出し/読み込み（手元に残る帳票データになる）
+//   データは起動時にサーバ(SQLite)から読み込み、編集すると自動保存される
+//   JSONの書き出し/読み込みはバックアップ・持ち運び用として残している
 // ───────────────────────────────────────────────
 
 const INK="#0c1623", PANEL="#13202f", LINE="#22303f", CYAN="#4dd6e0", GREEN="#3fbf8f",
@@ -38,6 +39,13 @@ const SEED = {
 
 let _id = 100;
 const nextKey = () => "r" + (++_id);
+// サーバから読んだランのキー(r101など)と新規追加のキーがぶつからないよう底上げする
+const bumpIdFrom = (runs) => {
+  for (const r of runs) {
+    const n = parseInt(String(r.key).replace(/^r/, ""), 10);
+    if (!Number.isNaN(n) && n > _id) _id = n;
+  }
+};
 
 export default function IListApp() {
   const [runs, setRuns] = useState(SEED.runs);
@@ -45,6 +53,38 @@ export default function IListApp() {
   const [cert, setCert] = useState(SEED.cert);
   const [tab, setTab] = useState("帳票");
   const fileRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [save, setSave] = useState("idle"); // idle=読み込み中 saving saved error
+
+  // 起動時：サーバから読み込む。サーバが空（初回）なら SEED のまま → 直後の自動保存でDBに入る
+  useEffect(() => {
+    fetch("/api/data")
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => {
+        if (d.runs.length || d.regs.length || Object.keys(d.cert).length) {
+          setRuns(d.runs); setRegs(d.regs); setCert(d.cert);
+          bumpIdFrom(d.runs);
+        }
+        setLoaded(true);
+      })
+      .catch(() => { setSave("error"); setLoaded(true); });
+  }, []);
+
+  // 編集のたびに自動保存（0.8秒待ってまとめて送る）
+  useEffect(() => {
+    if (!loaded) return;
+    setSave("saving");
+    const t = setTimeout(() => {
+      fetch("/api/data", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runs, regs, cert }),
+      })
+        .then((r) => { if (!r.ok) throw new Error(); setSave("saved"); })
+        .catch(() => setSave("error"));
+    }, 800);
+    return () => clearTimeout(t);
+  }, [runs, regs, cert, loaded]);
 
   const typeIds = useMemo(() => [...new Set(runs.map(r => r.typeId))], [runs]);
   const colorOf = (typeId) => PALETTE[typeIds.indexOf(typeId) % PALETTE.length];
@@ -109,6 +149,7 @@ export default function IListApp() {
           <span style={{ fontFamily:"ui-monospace, monospace", color:CYAN, fontSize:13, letterSpacing:2 }}>I-LIST</span>
           <h1 style={{ fontSize:19, fontWeight:700, margin:0, color:"#eef4fa" }}>自動車型式 適合・認証取得 管理帳票</h1>
           <span style={{ flex:1 }} />
+          <SaveStatus save={save} />
           <button onClick={exportJSON} style={btn(CYAN)}><Download size={13}/> データ書き出し</button>
           <button onClick={()=>fileRef.current?.click()} style={btn(MUTE,true)}><Upload size={13}/> 読み込み</button>
           <input ref={fileRef} type="file" accept="application/json" onChange={importJSON} style={{ display:"none" }} />
@@ -320,6 +361,21 @@ function CertEditor({ typeIds, regs, cert, setCert, colorOf }) {
         </table>
       </div>
     </div>
+  );
+}
+
+// ===== 保存ステータス表示 =====
+function SaveStatus({ save }) {
+  const m = {
+    idle:   { c: MUTE,  t: "読み込み中…" },
+    saving: { c: AMBER, t: "保存中…" },
+    saved:  { c: GREEN, t: "サーバに保存済み" },
+    error:  { c: RED,   t: "サーバ未接続（保存されません）" },
+  }[save];
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:m.c }}>
+      <span style={{ width:7, height:7, borderRadius:"50%", background:m.c }} />{m.t}
+    </span>
   );
 }
 
